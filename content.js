@@ -7,7 +7,8 @@ let customSelectors = [];
 chrome.storage.local.get(["enabled", "interval", "customSelectors"], (data) => {
   refreshInterval = data.interval || 5000;
   customSelectors = data.customSelectors || [];
-  if (data.enabled) start();
+  const isEnabled = data.enabled !== false;
+  if (isEnabled) start();
   setTimeout(scanAllFrames, 2000);
 });
 
