@@ -23,7 +23,8 @@ function updateUI(enabled) {
 
 // 2. Инициализация при открытии поп-апа
 chrome.storage.local.get(["enabled", "interval", "customSelectors"], (data) => {
-    updateUI(data.enabled);
+    const isEnabled = data.enabled !== false;
+    updateUI(isEnabled);
     if (data.interval) intervalSelect.value = data.interval;
     
     const count = data.customSelectors ? data.customSelectors.length : 0;
@@ -33,12 +34,15 @@ chrome.storage.local.get(["enabled", "interval", "customSelectors"], (data) => {
 // 3. Клик по главной карточке (Вкл/Выкл)
 toggleCard.addEventListener("click", () => {
     chrome.storage.local.get(["enabled"], (data) => {
-        const newState = !data.enabled;
+        const currentState = data.enabled !== false;
+        const newState = !currentState;
         chrome.storage.local.set({ enabled: newState }, () => {
             updateUI(newState);
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                 if (tabs[0]?.id) {
-                    chrome.tabs.sendMessage(tabs[0].id, { enabled: newState }).catch(() => {});
+                    chrome.tabs.sendMessage(tabs[0].id, { enabled: newState }, () => {
+                        void chrome.runtime.lastError;
+                    });
                 }
             });
         });
@@ -73,7 +77,9 @@ intervalSelect.addEventListener("change", () => {
     chrome.storage.local.set({ interval: val });
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]?.id) {
-            chrome.tabs.sendMessage(tabs[0].id, { interval: val }).catch(() => {});
+            chrome.tabs.sendMessage(tabs[0].id, { interval: val }, () => {
+                void chrome.runtime.lastError;
+            });
         }
     });
 });
