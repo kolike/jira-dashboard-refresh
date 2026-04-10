@@ -8,6 +8,9 @@ let customSelectors = [];
 let isPickerActive = false;
 const ISSUE_KEY_RE = /^[A-Z][A-Z0-9_]+-\d+$/;
 const MAX_KNOWN_ISSUES = 2000;
+const HARD_REFRESH_EVERY_MS = 15000;
+let lastHardRefreshAt = 0;
+let nextFrameRefreshIndex = 0;
 
 chrome.storage.local.get(["enabled", "interval", "customSelectors"], (data) => {
   refreshInterval = data.interval || 5000;
@@ -152,6 +155,31 @@ function scanAllFrames() {
   });
 }
 
+function tryClickNativeRefresh(frame) {
+  try {
+    const doc = frame.contentDocument || frame.contentWindow.document;
+    if (!doc) return false;
+
+    // Кнопка меню "три точки" в custom-charts gadget.
+    const menuButton = doc.querySelector('button.ossa-export-button');
+    if (!menuButton) return false;
+    menuButton.click();
+
+    // Пункт "Refresh data" появляется в выпадающем меню.
+    setTimeout(() => {
+      try {
+        const refreshIcon = doc.querySelector('[aria-label="Refresh data"]');
+        const refreshAction = refreshIcon?.closest('[role="button"], .Item-z6qfkt-2');
+        if (refreshAction) refreshAction.click();
+      } catch(e) {}
+    }, 60);
+
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
 function startPickingSession() {
   if (isPickerActive || document.getElementById("watcher-picker-panel")) return;
   isPickerActive = true;
@@ -222,13 +250,31 @@ function start() {
     clearTimeout(scanTimer);
     scanTimer = null;
   }
+  lastHardRefreshAt = 0;
+  nextFrameRefreshIndex = 0;
   refreshTimer = setInterval(() => { 
     const frames = getAllFrames();
     if (frames.length === 0) return;
 
-    frames.forEach(f => { try { f.src = f.src; } catch(e){} });
+    // Легкий быстрый скан всегда.
+    scanAllFrames();
+
+    // Тяжелое обновление делаем не на каждом тике и только для одного frame.
+    const now = Date.now();
+    if (now - lastHardRefreshAt < HARD_REFRESH_EVERY_MS) return;
+    lastHardRefreshAt = now;
+
+    const frame = frames[nextFrameRefreshIndex % frames.length];
+    nextFrameRefreshIndex = (nextFrameRefreshIndex + 1) % Math.max(frames.length, 1);
+    if (!frame) return;
+
+    const refreshedByNativeButton = tryClickNativeRefresh(frame);
+    if (!refreshedByNativeButton) {
+      try { frame.src = frame.src; } catch(e){}
+    }
+
     if (scanTimer) clearTimeout(scanTimer);
-    const scanDelay = Math.min(1500, Math.max(500, Math.floor(refreshInterval * 0.4)));
+    const scanDelay = refreshedByNativeButton ? 900 : Math.min(1500, Math.max(500, Math.floor(refreshInterval * 0.4)));
     scanTimer = setTimeout(() => {
       scanTimer = null;
       scanAllFrames();
