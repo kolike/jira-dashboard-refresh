@@ -1,8 +1,10 @@
 let refreshTimer = null;
+let scanTimer = null;
 let refreshInterval = 5000;
 let knownIssues = new Set();
 let initialized = false;
 let customSelectors = [];
+let isPickerActive = false;
 
 chrome.storage.local.get(["enabled", "interval", "customSelectors"], (data) => {
   refreshInterval = data.interval || 5000;
@@ -67,6 +69,7 @@ function scanAllFrames() {
   if (frames.length === 0) return;
 
   let newIssuesFound = [];
+  const frameTypeCache = new WeakMap();
   
   frames.forEach(frame => {
     try {
@@ -99,7 +102,11 @@ function scanAllFrames() {
 
         if (key && key.includes('-')) {
           // ОПРЕДЕЛЯЕМ ТИП ВИДЖЕТА для этого тикета
-          const widgetType = getWidgetType(frame);
+          let widgetType = frameTypeCache.get(frame);
+          if (!widgetType) {
+            widgetType = getWidgetType(frame);
+            frameTypeCache.set(frame, widgetType);
+          }
           
           newIssuesFound.push({ 
             key, 
@@ -132,10 +139,14 @@ function scanAllFrames() {
 }
 
 function startPickingSession() {
+  if (isPickerActive || document.getElementById("watcher-picker-panel")) return;
+  isPickerActive = true;
+
   let tempSelectors = [...customSelectors];
   const gadgets = document.querySelectorAll('div.gadget, div.dashboard-item, div.js-dashboard-item');
-  
-  const panel = document.createElement('div');
+  let panel = null;
+
+  panel = document.createElement('div');
   panel.id = "watcher-picker-panel";
   panel.style = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:999999; background:#18181b; border:2px solid #3b82f6; border-radius:12px; padding:12px 20px; display:flex; align-items:center; gap:15px; box-shadow:0 10px 40px #000; color:#fff; font-family:sans-serif;";
   panel.innerHTML = `
@@ -148,7 +159,8 @@ function startPickingSession() {
   const highlight = () => {
     gadgets.forEach(g => {
       const s = `#${g.id} iframe`;
-      g.style.outline = tempSelectors.includes(s) ? "4px solid #3b82f6" : "2px dashed #3f3f46";
+      const nextOutline = tempSelectors.includes(s) ? "4px solid #3b82f6" : "2px dashed #3f3f46";
+      if (g.style.outline !== nextOutline) g.style.outline = nextOutline;
     });
   };
   highlight();
@@ -167,13 +179,19 @@ function startPickingSession() {
 
   document.addEventListener("click", clickHandler, true);
 
+  const cleanupPicker = () => {
+    document.removeEventListener("click", clickHandler, true);
+    if (panel) panel.remove();
+    gadgets.forEach(g => g.style.outline = "");
+    isPickerActive = false;
+  };
+
   document.getElementById('picker-done').onclick = () => {
+    cleanupPicker();
     chrome.storage.local.set({ customSelectors: tempSelectors }, () => location.reload());
   };
   document.getElementById('picker-cancel').onclick = () => {
-    document.removeEventListener("click", clickHandler, true);
-    panel.remove();
-    gadgets.forEach(g => g.style.outline = "");
+    cleanupPicker();
   };
 }
 
@@ -186,9 +204,30 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 function start() { 
   if (refreshTimer) clearInterval(refreshTimer); 
+  if (scanTimer) {
+    clearTimeout(scanTimer);
+    scanTimer = null;
+  }
   refreshTimer = setInterval(() => { 
-    getAllFrames().forEach(f => { try { f.src = f.src; } catch(e){} });
-    setTimeout(scanAllFrames, 1500);
+    if (document.hidden) return;
+
+    const frames = getAllFrames();
+    if (frames.length === 0) return;
+
+    frames.forEach(f => { try { f.src = f.src; } catch(e){} });
+    if (scanTimer) clearTimeout(scanTimer);
+    scanTimer = setTimeout(() => {
+      scanTimer = null;
+      scanAllFrames();
+    }, 1500);
   }, refreshInterval); 
+}
+function stop() {
+  clearInterval(refreshTimer);
+  refreshTimer = null;
+  if (scanTimer) {
+    clearTimeout(scanTimer);
+    scanTimer = null;
+  }
 }
 function stop() { clearInterval(refreshTimer); refreshTimer = null; }
