@@ -1,8 +1,28 @@
 // background.js
 
-// Устанавливаем статус "Включено" при первой установке
+const DEFAULT_SETTINGS = {
+  enabled: true,
+  interval: 5000,
+  customSelectors: []
+};
+
+function ensureDefaultSettings() {
+  chrome.storage.local.get(["enabled", "interval", "customSelectors"], (res) => {
+    const next = {};
+    if (typeof res.enabled !== "boolean") next.enabled = DEFAULT_SETTINGS.enabled;
+    if (typeof res.interval !== "number") next.interval = DEFAULT_SETTINGS.interval;
+    if (!Array.isArray(res.customSelectors)) next.customSelectors = DEFAULT_SETTINGS.customSelectors;
+    if (Object.keys(next).length > 0) chrome.storage.local.set(next);
+  });
+}
+
+// Устанавливаем дефолтные настройки при установке/обновлении и запуске браузера
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({ enabled: true });
+  ensureDefaultSettings();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  ensureDefaultSettings();
 });
 
 // background.js
