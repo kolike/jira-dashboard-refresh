@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Jira Fast Watcher Pro",
+  "description": "Jira Fast Watcher, by NP",
+  "version": "3.0",
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "notifications",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://jira.vseinstrumenti.ru/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://jira.vseinstrumenti.ru/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
