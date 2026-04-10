@@ -5,6 +5,8 @@ const DEFAULT_SETTINGS = {
   interval: 5000,
   customSelectors: []
 };
+const recentNotifications = new Map();
+const DEDUPE_WINDOW_MS = 15000;
 
 function ensureDefaultSettings() {
   chrome.storage.local.get(["enabled", "interval", "customSelectors"], (res) => {
@@ -29,6 +31,16 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "NEW_ISSUE") {
+    const now = Date.now();
+    const prev = recentNotifications.get(msg.key);
+    if (prev && now - prev < DEDUPE_WINDOW_MS) return true;
+    recentNotifications.set(msg.key, now);
+    if (recentNotifications.size > 1000) {
+      for (const [key, ts] of recentNotifications.entries()) {
+        if (now - ts > DEDUPE_WINDOW_MS) recentNotifications.delete(key);
+      }
+    }
+
     chrome.storage.local.get(["enabled"], (res) => {
       if (res.enabled) {
         const isPriority = msg.notificationType === 'priority';
@@ -45,8 +57,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           requireInteraction: isPriority
         });
 
-        // Авто-закрытие для обычных уведомлений
-        if (!isPriority && msg.notificationType !== 'unknown') {
+        // Авто-закрытие: обычные и unknown, priority остаются до клика
+        if (!isPriority) {
           setTimeout(() => {
             chrome.notifications.clear(msg.key);
           }, 5000);

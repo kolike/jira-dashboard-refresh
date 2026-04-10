@@ -2,9 +2,12 @@ let refreshTimer = null;
 let scanTimer = null;
 let refreshInterval = 5000;
 let knownIssues = new Set();
+let knownIssuesQueue = [];
 let initialized = false;
 let customSelectors = [];
 let isPickerActive = false;
+const ISSUE_KEY_RE = /^[A-Z][A-Z0-9_]+-\d+$/;
+const MAX_KNOWN_ISSUES = 2000;
 
 chrome.storage.local.get(["enabled", "interval", "customSelectors"], (data) => {
   refreshInterval = data.interval || 5000;
@@ -19,6 +22,16 @@ function getAllFrames() {
     return customSelectors.map(s => document.querySelector(s)).filter(el => el !== null);
   }
   return [];
+}
+
+function rememberIssue(key) {
+  if (!key || knownIssues.has(key)) return;
+  knownIssues.add(key);
+  knownIssuesQueue.push(key);
+  if (knownIssuesQueue.length > MAX_KNOWN_ISSUES) {
+    const removed = knownIssuesQueue.shift();
+    if (removed) knownIssues.delete(removed);
+  }
 }
 
 // НОВАЯ ФУНКЦИЯ: определяет тип виджета (Ковров или остальные)
@@ -100,7 +113,7 @@ function scanAllFrames() {
 
         summary = summary.replace(/\s+/g, ' ').replace(key, '').trim();
 
-        if (key && key.includes('-')) {
+        if (ISSUE_KEY_RE.test(key)) {
           // ОПРЕДЕЛЯЕМ ТИП ВИДЖЕТА для этого тикета
           let widgetType = frameTypeCache.get(frame);
           if (!widgetType) {
@@ -123,7 +136,8 @@ function scanAllFrames() {
     frames.forEach(f => {
       try { 
         f.contentDocument?.querySelectorAll('a[href*="/browse/"]').forEach(l => {
-          knownIssues.add(l.textContent.trim());
+          const key = l.textContent.trim();
+          if (ISSUE_KEY_RE.test(key)) rememberIssue(key);
         }); 
       } catch(e) {}
     });
@@ -132,7 +146,7 @@ function scanAllFrames() {
   }
 
   newIssuesFound.forEach(issue => {
-    knownIssues.add(issue.key);
+    rememberIssue(issue.key);
     // Отправляем с типом уведомления
     chrome.runtime.sendMessage({ type: "NEW_ISSUE", ...issue });
   });
@@ -209,17 +223,16 @@ function start() {
     scanTimer = null;
   }
   refreshTimer = setInterval(() => { 
-    if (document.hidden) return;
-
     const frames = getAllFrames();
     if (frames.length === 0) return;
 
     frames.forEach(f => { try { f.src = f.src; } catch(e){} });
     if (scanTimer) clearTimeout(scanTimer);
+    const scanDelay = Math.min(1500, Math.max(500, Math.floor(refreshInterval * 0.4)));
     scanTimer = setTimeout(() => {
       scanTimer = null;
       scanAllFrames();
-    }, 1500);
+    }, scanDelay);
   }, refreshInterval); 
 }
 function stop() {
@@ -230,4 +243,3 @@ function stop() {
     scanTimer = null;
   }
 }
-function stop() { clearInterval(refreshTimer); refreshTimer = null; }
