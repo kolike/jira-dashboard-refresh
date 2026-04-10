@@ -230,3 +230,4 @@ function stop() {
     scanTimer = null;
   }
 }
+function stop() { clearInterval(refreshTimer); refreshTimer = null; }
