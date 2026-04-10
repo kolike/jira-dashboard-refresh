@@ -1,13 +1,19 @@
 let refreshTimer = null;
+let scanTimer = null;
 let refreshInterval = 5000;
 let knownIssues = new Set();
+let knownIssuesQueue = [];
 let initialized = false;
 let customSelectors = [];
+let isPickerActive = false;
+const ISSUE_KEY_RE = /^[A-Z][A-Z0-9_]+-\d+$/;
+const MAX_KNOWN_ISSUES = 2000;
 
 chrome.storage.local.get(["enabled", "interval", "customSelectors"], (data) => {
   refreshInterval = data.interval || 5000;
   customSelectors = data.customSelectors || [];
-  if (data.enabled) start();
+  const isEnabled = data.enabled !== false;
+  if (isEnabled) start();
   setTimeout(scanAllFrames, 2000);
 });
 
@@ -16,6 +22,16 @@ function getAllFrames() {
     return customSelectors.map(s => document.querySelector(s)).filter(el => el !== null);
   }
   return [];
+}
+
+function rememberIssue(key) {
+  if (!key || knownIssues.has(key)) return;
+  knownIssues.add(key);
+  knownIssuesQueue.push(key);
+  if (knownIssuesQueue.length > MAX_KNOWN_ISSUES) {
+    const removed = knownIssuesQueue.shift();
+    if (removed) knownIssues.delete(removed);
+  }
 }
 
 // НОВАЯ ФУНКЦИЯ: определяет тип виджета (Ковров или остальные)
@@ -66,6 +82,7 @@ function scanAllFrames() {
   if (frames.length === 0) return;
 
   let newIssuesFound = [];
+  const frameTypeCache = new WeakMap();
   
   frames.forEach(frame => {
     try {
@@ -96,9 +113,13 @@ function scanAllFrames() {
 
         summary = summary.replace(/\s+/g, ' ').replace(key, '').trim();
 
-        if (key && key.includes('-')) {
+        if (ISSUE_KEY_RE.test(key)) {
           // ОПРЕДЕЛЯЕМ ТИП ВИДЖЕТА для этого тикета
-          const widgetType = getWidgetType(frame);
+          let widgetType = frameTypeCache.get(frame);
+          if (!widgetType) {
+            widgetType = getWidgetType(frame);
+            frameTypeCache.set(frame, widgetType);
+          }
           
           newIssuesFound.push({ 
             key, 
@@ -115,7 +136,8 @@ function scanAllFrames() {
     frames.forEach(f => {
       try { 
         f.contentDocument?.querySelectorAll('a[href*="/browse/"]').forEach(l => {
-          knownIssues.add(l.textContent.trim());
+          const key = l.textContent.trim();
+          if (ISSUE_KEY_RE.test(key)) rememberIssue(key);
         }); 
       } catch(e) {}
     });
@@ -124,17 +146,21 @@ function scanAllFrames() {
   }
 
   newIssuesFound.forEach(issue => {
-    knownIssues.add(issue.key);
+    rememberIssue(issue.key);
     // Отправляем с типом уведомления
     chrome.runtime.sendMessage({ type: "NEW_ISSUE", ...issue });
   });
 }
 
 function startPickingSession() {
+  if (isPickerActive || document.getElementById("watcher-picker-panel")) return;
+  isPickerActive = true;
+
   let tempSelectors = [...customSelectors];
   const gadgets = document.querySelectorAll('div.gadget, div.dashboard-item, div.js-dashboard-item');
-  
-  const panel = document.createElement('div');
+  let panel = null;
+
+  panel = document.createElement('div');
   panel.id = "watcher-picker-panel";
   panel.style = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:999999; background:#18181b; border:2px solid #3b82f6; border-radius:12px; padding:12px 20px; display:flex; align-items:center; gap:15px; box-shadow:0 10px 40px #000; color:#fff; font-family:sans-serif;";
   panel.innerHTML = `
@@ -147,7 +173,8 @@ function startPickingSession() {
   const highlight = () => {
     gadgets.forEach(g => {
       const s = `#${g.id} iframe`;
-      g.style.outline = tempSelectors.includes(s) ? "4px solid #3b82f6" : "2px dashed #3f3f46";
+      const nextOutline = tempSelectors.includes(s) ? "4px solid #3b82f6" : "2px dashed #3f3f46";
+      if (g.style.outline !== nextOutline) g.style.outline = nextOutline;
     });
   };
   highlight();
@@ -166,13 +193,19 @@ function startPickingSession() {
 
   document.addEventListener("click", clickHandler, true);
 
+  const cleanupPicker = () => {
+    document.removeEventListener("click", clickHandler, true);
+    if (panel) panel.remove();
+    gadgets.forEach(g => g.style.outline = "");
+    isPickerActive = false;
+  };
+
   document.getElementById('picker-done').onclick = () => {
+    cleanupPicker();
     chrome.storage.local.set({ customSelectors: tempSelectors }, () => location.reload());
   };
   document.getElementById('picker-cancel').onclick = () => {
-    document.removeEventListener("click", clickHandler, true);
-    panel.remove();
-    gadgets.forEach(g => g.style.outline = "");
+    cleanupPicker();
   };
 }
 
@@ -185,9 +218,28 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 function start() { 
   if (refreshTimer) clearInterval(refreshTimer); 
+  if (scanTimer) {
+    clearTimeout(scanTimer);
+    scanTimer = null;
+  }
   refreshTimer = setInterval(() => { 
-    getAllFrames().forEach(f => { try { f.src = f.src; } catch(e){} });
-    setTimeout(scanAllFrames, 1500);
+    const frames = getAllFrames();
+    if (frames.length === 0) return;
+
+    frames.forEach(f => { try { f.src = f.src; } catch(e){} });
+    if (scanTimer) clearTimeout(scanTimer);
+    const scanDelay = Math.min(1500, Math.max(500, Math.floor(refreshInterval * 0.4)));
+    scanTimer = setTimeout(() => {
+      scanTimer = null;
+      scanAllFrames();
+    }, scanDelay);
   }, refreshInterval); 
 }
-function stop() { clearInterval(refreshTimer); refreshTimer = null; }
+function stop() {
+  clearInterval(refreshTimer);
+  refreshTimer = null;
+  if (scanTimer) {
+    clearTimeout(scanTimer);
+    scanTimer = null;
+  }
+}
