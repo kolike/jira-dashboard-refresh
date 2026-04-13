@@ -8,7 +8,6 @@ let customSelectors = [];
 let isPickerActive = false;
 const ISSUE_KEY_RE = /^[A-Z][A-Z0-9_]+-\d+$/;
 const MAX_KNOWN_ISSUES = 2000;
-const HARD_REFRESH_EVERY_MS = 15000;
 let lastHardRefreshAt = 0;
 let nextFrameRefreshIndex = 0;
 
@@ -16,8 +15,30 @@ chrome.storage.local.get(["enabled", "interval", "customSelectors"], (data) => {
   refreshInterval = data.interval || 5000;
   customSelectors = data.customSelectors || [];
   const isEnabled = data.enabled !== false;
-  if (isEnabled) start();
-  setTimeout(scanAllFrames, 2000);
+  if (isEnabled) {
+    start();
+    setTimeout(scanAllFrames, Math.min(1200, Math.max(400, Math.floor(refreshInterval * 0.25))));
+  }
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+
+  if (changes.customSelectors) {
+    customSelectors = Array.isArray(changes.customSelectors.newValue) ? changes.customSelectors.newValue : [];
+  }
+
+  if (changes.interval) {
+    const nextInterval = Number(changes.interval.newValue);
+    if (Number.isFinite(nextInterval) && nextInterval > 0) {
+      refreshInterval = nextInterval;
+      if (refreshTimer) start();
+    }
+  }
+
+  if (changes.enabled) {
+    changes.enabled.newValue === false ? stop() : start();
+  }
 });
 
 function getAllFrames() {
@@ -180,6 +201,12 @@ function tryClickNativeRefresh(frame) {
   }
 }
 
+function getHardRefreshEveryMs() {
+  // Привязываем "тяжелое" обновление к выбранному интервалу пользователя.
+  // Так UI-тайминг реально влияет на частоту обновления данных.
+  return Math.max(2000, refreshInterval);
+}
+
 function startPickingSession() {
   if (isPickerActive || document.getElementById("watcher-picker-panel")) return;
   isPickerActive = true;
@@ -261,7 +288,7 @@ function start() {
 
     // Тяжелое обновление делаем не на каждом тике и только для одного frame.
     const now = Date.now();
-    if (now - lastHardRefreshAt < HARD_REFRESH_EVERY_MS) return;
+    if (now - lastHardRefreshAt < getHardRefreshEveryMs()) return;
     lastHardRefreshAt = now;
 
     const frame = frames[nextFrameRefreshIndex % frames.length];
