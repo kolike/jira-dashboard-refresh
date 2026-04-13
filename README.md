@@ -16,14 +16,19 @@
   - content script: `content.js` для `*://jira.vseinstrumenti.ru/*`
   - popup: `popup.html`
 - `background.js`:
-  - инициализация дефолтных значений storage (`enabled`, `interval`, `customSelectors`) на install/startup
+  - инициализация дефолтных значений storage (`enabled`, `interval`, `customSelectors`, `jiraPat`, `redJql`, `blueJql`) на install/startup
 - `content.js`:
+  - API polling Jira (`/rest/api/2/search`) по двум JQL-веткам (красная/синяя)
   - безопасный старт мониторинга: включено по умолчанию, если `enabled` отсутствует
 - `popup.js`:
   - безопасная отправка сообщений в tab + обработка `chrome.runtime.lastError`
+  - работа в API-режиме (выбор iframe больше не требуется)
 
 ## Storage ключи
 
 - `enabled` (boolean, default `true`)
 - `interval` (number, default `5000`)
 - `customSelectors` (string[], default `[]`)
+- `jiraPat` (string, default `""`) — персональный токен Jira (Bearer), опционально
+- `redJql` (string) — JQL для красной ветки
+- `blueJql` (string) — JQL для синей ветки
