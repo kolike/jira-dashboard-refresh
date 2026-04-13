@@ -1,14 +1,46 @@
 // background.js
 
-// Устанавливаем статус "Включено" при первой установке
+const DEFAULT_SETTINGS = {
+  enabled: true,
+  interval: 5000,
+  customSelectors: []
+};
+const recentNotifications = new Map();
+const DEDUPE_WINDOW_MS = 15000;
+
+function ensureDefaultSettings() {
+  chrome.storage.local.get(["enabled", "interval", "customSelectors"], (res) => {
+    const next = {};
+    if (typeof res.enabled !== "boolean") next.enabled = DEFAULT_SETTINGS.enabled;
+    if (typeof res.interval !== "number") next.interval = DEFAULT_SETTINGS.interval;
+    if (!Array.isArray(res.customSelectors)) next.customSelectors = DEFAULT_SETTINGS.customSelectors;
+    if (Object.keys(next).length > 0) chrome.storage.local.set(next);
+  });
+}
+
+// Устанавливаем дефолтные настройки при установке/обновлении и запуске браузера
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set({ enabled: true });
+  ensureDefaultSettings();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  ensureDefaultSettings();
 });
 
 // background.js
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "NEW_ISSUE") {
+    const now = Date.now();
+    const prev = recentNotifications.get(msg.key);
+    if (prev && now - prev < DEDUPE_WINDOW_MS) return true;
+    recentNotifications.set(msg.key, now);
+    if (recentNotifications.size > 1000) {
+      for (const [key, ts] of recentNotifications.entries()) {
+        if (now - ts > DEDUPE_WINDOW_MS) recentNotifications.delete(key);
+      }
+    }
+
     chrome.storage.local.get(["enabled"], (res) => {
       if (res.enabled) {
         const isPriority = msg.notificationType === 'priority';
@@ -25,8 +57,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           requireInteraction: isPriority
         });
 
-        // Авто-закрытие для обычных уведомлений
-        if (!isPriority && msg.notificationType !== 'unknown') {
+        // Авто-закрытие: обычные и unknown, priority остаются до клика
+        if (!isPriority) {
           setTimeout(() => {
             chrome.notifications.clear(msg.key);
           }, 5000);
