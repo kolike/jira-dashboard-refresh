@@ -3,17 +3,23 @@
 const DEFAULT_SETTINGS = {
   enabled: true,
   interval: 5000,
-  customSelectors: []
+  customSelectors: [],
+  jiraPat: "",
+  redJql: 'project = "Рабочее место" AND (Регион = Ковров OR "Регион портал" = "Ковров(офис)") AND resolution = Unresolved AND assignee in (EMPTY)',
+  blueJql: 'project = "Рабочее место" AND ( Регион = Владимир OR  Регион = "Не заполнено" OR Регион = Нижний-Новгород  OR Регион = Москва  OR "Регион портал" = "Владимир(офис)"      OR "Регион портал" = "Москва(офис)") AND resolution = Unresolved AND assignee in (EMPTY)'
 };
 const recentNotifications = new Map();
 const DEDUPE_WINDOW_MS = 15000;
 
 function ensureDefaultSettings() {
-  chrome.storage.local.get(["enabled", "interval", "customSelectors"], (res) => {
+  chrome.storage.local.get(["enabled", "interval", "customSelectors", "jiraPat", "redJql", "blueJql"], (res) => {
     const next = {};
     if (typeof res.enabled !== "boolean") next.enabled = DEFAULT_SETTINGS.enabled;
     if (typeof res.interval !== "number") next.interval = DEFAULT_SETTINGS.interval;
     if (!Array.isArray(res.customSelectors)) next.customSelectors = DEFAULT_SETTINGS.customSelectors;
+    if (typeof res.jiraPat !== "string") next.jiraPat = DEFAULT_SETTINGS.jiraPat;
+    if (typeof res.redJql !== "string" || !res.redJql.trim()) next.redJql = DEFAULT_SETTINGS.redJql;
+    if (typeof res.blueJql !== "string" || !res.blueJql.trim()) next.blueJql = DEFAULT_SETTINGS.blueJql;
     if (Object.keys(next).length > 0) chrome.storage.local.set(next);
   });
 }

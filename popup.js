@@ -27,8 +27,9 @@ chrome.storage.local.get(["enabled", "interval", "customSelectors"], (data) => {
     updateUI(isEnabled);
     if (data.interval) intervalSelect.value = data.interval;
     
-    const count = data.customSelectors ? data.customSelectors.length : 0;
-    frameCounter.textContent = count > 0 ? `Привязано блоков: ${count}` : "Нажми, чтобы выбрать блоки";
+    frameCounter.textContent = "API-режим: выбор блоков не требуется";
+    pickBtn.style.opacity = "0.55";
+    resetBtn.style.opacity = "0.55";
 });
 
 // 3. Клик по главной карточке (Вкл/Выкл)
@@ -51,24 +52,12 @@ toggleCard.addEventListener("click", () => {
 
 // 4. Клик по кнопке Прицел
 pickBtn.addEventListener("click", () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]?.id) {
-            chrome.tabs.sendMessage(tabs[0].id, { action: "START_PICKING" });
-            window.close(); // Закрываем поп-ап, чтобы не мешал выбирать
-        }
-    });
+    alert("API-режим активен: выбор iframe больше не используется.");
 });
 
 // 5. Клик по кнопке Сброс
 resetBtn.addEventListener("click", () => {
-    if (confirm("Сбросить все выбранные очереди?")) {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]?.id) {
-                chrome.tabs.sendMessage(tabs[0].id, { action: "RESET_FRAMES" });
-                window.close();
-            }
-        });
-    }
+    alert("API-режим активен: сброс iframe не требуется.");
 });
 
 // 6. Изменение интервала
@@ -118,8 +107,7 @@ if (openTutBtn) {
 // 8. Слушатель изменений в хранилище (обновляет счетчик сам)
 chrome.storage.onChanged.addListener((changes) => {
     if (changes.customSelectors) {
-        const count = changes.customSelectors.newValue ? changes.customSelectors.newValue.length : 0;
-        frameCounter.textContent = count > 0 ? `Привязано блоков: ${count}` : "Нажми, чтобы выбрать блоки";
+        frameCounter.textContent = "API-режим: выбор блоков не требуется";
     }
     if (changes.enabled) {
         updateUI(changes.enabled.newValue);
