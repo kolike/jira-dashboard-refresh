@@ -1,139 +1,138 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<style>
-  :root {
-    --bg: #09090b; 
-    --bg-gradient: radial-gradient(circle at 50% 40%, #1a1a2e 0%, #050505 100%);
-    --card: #18181b; 
-    --border: rgba(255, 255, 255, 0.12);
-    --accent: #3b82f6; 
-    --text: #ffffff; 
-    --text-dim: #cbd5e1;
-    --green: #4ade80;
-  }
-  body { margin: 0; width: 280px; font-family: 'Inter', system-ui, sans-serif; background: var(--bg-gradient); color: var(--text); }
-  .app { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .bento-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 12px; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-  .full-width { grid-column: span 2; }
-  
-  .status-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-  .status-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); font-weight: 700; }
-  .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: #3f3f46; }
-  .active .status-indicator { background: var(--accent); box-shadow: 0 0 12px var(--accent); }
-  
-  .action-btn { width: 100%; background: transparent; border: none; color: var(--text); padding: 0; cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 4px; }
-  .btn-title { font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
-  .btn-desc { font-size: 11px; color: var(--text-dim); line-height: 1.3; }
-  
-  #toggle { cursor: pointer; }
-  .active #toggle { border-color: var(--accent); background: rgba(59, 130, 246, 0.05); }
-  
- .scanning-text { 
-  font-size: 11px; 
-  color: #4ade80; /* Тот самый зеленый */
-  display: none; 
-  margin-top: 6px; 
-  font-weight: 700;
-  text-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
-}
-
-/* Когда у mainContainer есть класс .active, текст показывается и мигает */
-.active .scanning-text { 
-  display: block; 
-  animation: pulseGreen 2s infinite ease-in-out; 
-}
-
-@keyframes pulseGreen { 
-  0%, 100% { opacity: 1; } 
-  50% { opacity: 0.3; } 
-}
-
-  /* ИСПРАВЛЕННЫЙ СЕЛЕКТ (ИНТЕРВАЛ) */
-  select { 
-    background: #27272a; 
-    border: 1px solid var(--border); 
-    color: #ffffff; 
-    font-size: 13px; 
-    font-weight: 700; 
-    outline: none; 
-    cursor: pointer; 
-    width: 100%; 
-    padding: 8px; 
-    border-radius: 10px;
-    margin-top: 5px;
-  }
-  select option { background: #18181b; color: #ffffff; }
-
-  .footer { margin-top: 8px; font-size: 10px; color: #52525b; text-align: center; }
-  #openTutorial { color: var(--accent); cursor: pointer; font-weight: 800; text-decoration: underline; }
-
-  /* ОКНО ТУТОРИАЛА */
-  #tutorialOverlay { 
-    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-    background: rgba(9, 9, 11, 0.98); z-index: 100; padding: 20px; box-sizing: border-box; 
-  }
-  .tut-content { display: flex; flex-direction: column; gap: 15px; height: 100%; }
-  .tut-content h2 { color: var(--accent); margin: 0; font-size: 18px; }
-  .tut-content p { font-size: 14px; line-height: 1.5; margin: 0; color: #ffffff; }
-  #closeTutorial { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 800; cursor: pointer; margin-top: auto; }
-</style>
+  <meta charset="utf-8">
+  <style>
+    :root {
+      --bg: #09090b;
+      --card: #18181b;
+      --border: rgba(255,255,255,.12);
+      --accent: #3b82f6;
+      --text: #fff;
+      --dim: #cbd5e1;
+    }
+    body {
+      margin: 0;
+      width: 360px;
+      font-family: Inter, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .app {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .title {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 6px;
+      font-weight: 700;
+      letter-spacing: .06em;
+    }
+    input, textarea, select {
+      width: 100%;
+      box-sizing: border-box;
+      background: #27272a;
+      color: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+    }
+    textarea {
+      min-height: 76px;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+    .row > * {
+      flex: 1;
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+    }
+    .hint {
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.35;
+      margin-top: 6px;
+    }
+    label.switch {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 700;
+    }
+  </style>
 </head>
 <body>
-<div class="app" id="mainContainer">
-  <div class="bento-card full-width" id="toggle">
-    <div class="status-header">
-      <span class="status-label">Система</span>
-      <div class="status-indicator"></div>
+  <div class="app">
+    <div class="card">
+      <label class="switch">
+        <span>Мониторинг</span>
+        <input id="enabled" type="checkbox">
+      </label>
     </div>
-    <button class="action-btn">
-      <span class="btn-title"><span id="mainIcon">⚡</span> <span id="btnText">Мониторинг выключен</span></span>
-      <span class="btn-desc">Отслеживание новых тикетов Jira в реальном времени.</span>
-      <span class="scanning-text">● Сканирование активных фреймов...</span>
-    </button>
-  </div>
-  <div class="grid">
-    <div class="bento-card" id="pickFrame">
-      <button class="action-btn">
-        <span class="btn-title">🎯 Прицел</span>
-        <span id="frameCounter" class="btn-desc">Нажми, чтобы выбрать блоки</span>
-      </button>
+
+    <div class="card">
+      <div class="title">Base URL</div>
+      <input id="baseUrl" value="https://jira.vseinstrumenti.ru">
     </div>
-    <div class="bento-card" id="resetFrames" style="border-color: rgba(239, 68, 68, 0.3);">
-      <button class="action-btn">
-        <span class="btn-title" style="color: #f87171;">🧹 Сброс</span>
-        <span class="btn-desc">Удалить все привязки</span>
-      </button>
+
+    <div class="card">
+      <div class="title">PAT Token</div>
+      <input id="token" type="password" placeholder="Вставь новый PAT">
+      <div class="hint">Токен хранится локально в storage расширения.</div>
     </div>
-    <div class="bento-card full-width">
-      <span class="status-label">Интервал обновления</span>
+
+    <div class="card">
+      <div class="title">Интервал</div>
       <select id="interval">
-        <option value="2000">2 секунды</option>
-        <option value="5000">5 секунд</option>
-        <option value="10000">10 секунд</option>
-        <option value="30000">30 секунд</option>
+        <option value="30">30 секунд</option>
+        <option value="60">60 секунд</option>
+        <option value="120">2 минуты</option>
+        <option value="300">5 минут</option>
       </select>
     </div>
-  </div>
-  <div class="footer">
-    Jira Fast Watcher v3.5<br><br>
-    <span id="openTutorial">ТУТОРИАЛ</span>
-  </div>
-</div>
 
-<div id="tutorialOverlay">
-  <div class="tut-content">
-    <h2>📖 Как пользоваться?</h2>
-    <p>1. 🎯 <b>Прицел</b>: Нажми и выбери блоки (гаджеты) в Jira, которые нужно мониторить.</p>
-    <p>2. ⚡ <b>Запуск</b>: Нажми на верхнюю карточку. Когда она станет синей, слежка началась.</p>
-    <p>3. ⏱️ <b>Интервал</b>: Выбери время. Каждые Х секунд расширение будет обновлять данные.</p>
-    <p>4. 🔔 <b>Уведомления</b>: Новые задачи появятся в углу экрана.</p>
-    <button id="closeTutorial">ПОНЯТНО</button>
-  </div>
-</div>
+    <div class="card">
+      <div class="title">Priority JQL</div>
+      <textarea id="jqlPriority"></textarea>
+    </div>
 
-<script src="popup.js"></script>
+    <div class="card">
+      <div class="title">Transient JQL</div>
+      <textarea id="jqlTransient"></textarea>
+    </div>
+
+    <div class="row">
+      <button id="save">Сохранить</button>
+      <button id="runNow" class="ghost">Проверить сейчас</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
 </body>
 </html>
