@@ -8,6 +8,7 @@ let customSelectors = [];
 let isPickerActive = false;
 const ISSUE_KEY_RE = /^[A-Z][A-Z0-9_]+-\d+$/;
 const MAX_KNOWN_ISSUES = 2000;
+const ENABLE_NATIVE_GADGET_REFRESH = false;
 let lastHardRefreshAt = 0;
 let nextFrameRefreshIndex = 0;
 
@@ -177,6 +178,7 @@ function scanAllFrames() {
 }
 
 function tryClickNativeRefresh(frame) {
+  if (!ENABLE_NATIVE_GADGET_REFRESH) return false;
   try {
     const doc = frame.contentDocument || frame.contentWindow.document;
     if (!doc) return false;
